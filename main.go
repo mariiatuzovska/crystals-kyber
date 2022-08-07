@@ -41,7 +41,8 @@ func main() {
 						setLog(c)
 						log.Info("Generating [kyber] public and secret keys has been started")
 						k := getKyberAlg(c)
-						pk, sk := k.PKEKeyGen(nil)
+						seed := getSeed(c)
+						pk, sk := k.PKEKeyGen(seed)
 						log.Info("Kyber keys have been generated")
 						base64PK, base64SK := base64.StdEncoding.EncodeToString(pk), base64.StdEncoding.EncodeToString(sk)
 						fmt.Println("Public key:", base64PK, "\n")
@@ -52,7 +53,10 @@ func main() {
 						&cli.StringFlag{
 							Name:  "alg",
 							Usage: "Algorithm name (kyber512/kyber768/kyber1024)",
-							Value: "kyber768",
+						},
+						&cli.StringFlag{
+							Name:  "seed",
+							Usage: "32 bytes encoded to base64 string seed",
 						},
 						&cli.StringFlag{
 							Name:  "log-level",
@@ -72,7 +76,8 @@ func main() {
 						if err != nil {
 							log.Fatal("Unknown flag value: public-key is malformed", fatalExitCode)
 						}
-						encrypted := k.Encrypt(pk, []byte(c.String("message")), nil)
+						seed := getSeed(c)
+						encrypted := k.Encrypt(pk, []byte(c.String("message")), seed)
 						base64EncryptedMSg := base64.StdEncoding.EncodeToString(encrypted)
 						fmt.Println("Ciphertext:", base64EncryptedMSg)
 						log.Info("Message has been encrypted")
@@ -85,9 +90,8 @@ func main() {
 							Value: "kyber768",
 						},
 						&cli.StringFlag{
-							Name:  "log-level",
-							Usage: "Log level (DEBUG/INFO/WARNING/ERROR/FATAL)",
-							Value: "ERROR",
+							Name:  "seed",
+							Usage: "32 bytes encoded to base64 string seed",
 						},
 						&cli.StringFlag{
 							Name:     "public-key",
@@ -98,6 +102,11 @@ func main() {
 							Name:     "message",
 							Usage:    "Message must be more then 256 bytes",
 							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  "log-level",
+							Usage: "Log level (DEBUG/INFO/WARNING/ERROR/FATAL)",
+							Value: "ERROR",
 						},
 					},
 				},
@@ -158,7 +167,8 @@ func main() {
 						setLog(c)
 						log.Info("Generating [dilithium] public and secret keys has been started")
 						d := getDilithiumAlg(c)
-						pk, sk := d.KeyGen(nil)
+						seed := getSeed(c)
+						pk, sk := d.KeyGen(seed)
 						base64PK, base64SK := base64.StdEncoding.EncodeToString(pk), base64.StdEncoding.EncodeToString(sk)
 						fmt.Println("Public key:", base64PK, "\n")
 						fmt.Println("Secret key:", base64SK, "\n")
@@ -170,6 +180,10 @@ func main() {
 							Name:  "alg",
 							Usage: "Algorithm name (dilithium2/dilithium3/dilithium5)",
 							Value: "dilithium3",
+						},
+						&cli.StringFlag{
+							Name:  "seed",
+							Usage: "32 bytes encoded to base64 string seed",
 						},
 						&cli.StringFlag{
 							Name:  "log-level",
@@ -325,5 +339,20 @@ func getDilithiumAlg(c *cli.Context) *dilithium.Dilithium {
 		return dilithium.NewDilithium5()
 	}
 	log.Fatalf("Unknown flag value: alg=%s. alg should be from list: dilithium2/dilithium3/dilithium5", fatalExitCode, c.String("alg"))
+	return nil
+}
+
+func getSeed(c *cli.Context) []byte {
+	if str := c.String("seed"); str != "" {
+		seed, err := base64.StdEncoding.DecodeString(str)
+		if err != nil {
+			log.Fatalf("Cannot decode base64 string: seed=%s. error: %v", fatalExitCode, str, err)
+		}
+		if len(seed) < 32 {
+			log.Fatalf("Cannot decode base64 string: seed=%s. error: seed must be 32 bytes encoded to base64 string", fatalExitCode, str)
+		}
+		log.Info("Seed has been set")
+		return seed
+	}
 	return nil
 }
